@@ -81,10 +81,14 @@ st.title("📚 English Tutor")
 st.markdown("**你的英语学习助手**")
 st.markdown("---")
 
-# 检查API Key
+# 检查API Key和客户端
 if not os.getenv("ANTHROPIC_API_KEY"):
     st.error("请先设置 ANTHROPIC_API_KEY 环境变量")
-    st.info("在 `.env` 文件中添加: `ANTHROPIC_API_KEY=your_api_key_here`")
+    st.info("在 Streamlit Cloud 设置中添加 Secrets: `ANTHROPIC_API_KEY=your_key`")
+    st.stop()
+
+if client is None:
+    st.error("无法初始化 Claude 客户端，请检查配置")
     st.stop()
 
 # 初始化会话状态
@@ -190,20 +194,23 @@ with st.sidebar:
     ]
     for prompt in quick_prompts:
         if st.button(prompt, use_container_width=True, key=f"quick_{prompt}"):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            # 获取模型回复
-            with st.spinner("Thinking..."):
-                try:
-                    response = client.messages.create(
-                        model="claude-sonnet-4-6",
-                        max_tokens=1024,
-                        system=SYSTEM_PROMPT,
-                        messages=st.session_state.messages
-                    )
-                    assistant_message = response.content[0].text
-                    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
-                except Exception as e:
-                    st.session_state.messages.append({"role": "assistant", "content": f"Error: {str(e)}"})
+            if client is None:
+                st.session_state.messages.append({"role": "assistant", "content": "错误：无法连接到 API，请检查配置。"})
+            else:
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                # 获取模型回复
+                with st.spinner("Thinking..."):
+                    try:
+                        response = client.messages.create(
+                            model="claude-sonnet-4-6",
+                            max_tokens=1024,
+                            system=SYSTEM_PROMPT,
+                            messages=st.session_state.messages
+                        )
+                        assistant_message = response.content[0].text
+                        st.session_state.messages.append({"role": "assistant", "content": assistant_message})
+                    except Exception as e:
+                        st.session_state.messages.append({"role": "assistant", "content": f"Error: {str(e)}"})
             st.rerun()
 
     st.markdown("---")
